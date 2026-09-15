@@ -85,6 +85,7 @@ export default function App() {
 
   // Handler: Start studying a specific deck
   const handleStartStudy = (deck: Deck) => {
+    sounds.playProgress();
     setActiveStudyDeck(deck);
     setCurrentView('study');
   };
@@ -186,6 +187,7 @@ export default function App() {
 
   // Handler: Add new custom deck
   const handleCreateDeck = (newDeck: Deck) => {
+    sounds.playSuccess();
     setDecks(prev => [newDeck, ...prev]);
   };
 
@@ -212,17 +214,29 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white overflow-x-hidden">
+      <div className="mx-auto w-full max-w-[480px] sm:max-w-full">
       {/* Global Navigation Header */}
       <Navbar
         currentView={currentView}
-        onNavigate={setCurrentView}
+        onNavigate={(view) => {
+          sounds.playFlip();
+          setCurrentView(view);
+        }}
         userStats={userStats}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        onOpenNewDeck={() => setIsNewDeckOpen(true)}
+        onOpenCommandPalette={() => {
+          sounds.playModalOpen();
+          setIsCommandPaletteOpen(true);
+        }}
+        onOpenNewDeck={() => {
+          sounds.playModalOpen();
+          setIsNewDeckOpen(true);
+        }}
         soundEnabled={userStats.soundEffects}
-        onToggleSound={() => setUserStats(prev => ({ ...prev, soundEffects: !prev.soundEffects }))}
+        onToggleSound={() => {
+          sounds.playProgress();
+          setUserStats(prev => ({ ...prev, soundEffects: !prev.soundEffects }));
+        }}
       />
 
       {/* Main Content Area */}
@@ -232,9 +246,18 @@ export default function App() {
             userStats={userStats}
             decks={decks}
             onStartStudy={handleStartStudy}
-            onNavigateDecks={() => setCurrentView('decks')}
-            onNavigatePractice={() => setCurrentView('practice')}
-            onOpenNewDeck={() => setIsNewDeckOpen(true)}
+            onNavigateDecks={() => {
+              sounds.playFlip();
+              setCurrentView('decks');
+            }}
+            onNavigatePractice={() => {
+              sounds.playProgress();
+              setCurrentView('practice');
+            }}
+            onOpenNewDeck={() => {
+              sounds.playModalOpen();
+              setIsNewDeckOpen(true);
+            }}
           />
         )}
 
@@ -283,23 +306,36 @@ export default function App() {
       {/* Global Modals */}
       <CommandPaletteModal
         isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
+        onClose={() => {
+          sounds.playModalClose();
+          setIsCommandPaletteOpen(false);
+        }}
         decks={decks}
         onSelectDeck={handleStartStudy}
-        onNavigate={setCurrentView}
+        onNavigate={(view) => {
+          sounds.playFlip();
+          setCurrentView(view);
+        }}
       />
 
       <NewDeckModal
         isOpen={isNewDeckOpen}
-        onClose={() => setIsNewDeckOpen(false)}
+        onClose={() => {
+          sounds.playModalClose();
+          setIsNewDeckOpen(false);
+        }}
         onCreateDeck={handleCreateDeck}
       />
 
       <AiDeckMakerModal
         isOpen={isAiDeckMakerOpen}
-        onClose={() => setIsAiDeckMakerOpen(false)}
+        onClose={() => {
+          sounds.playModalClose();
+          setIsAiDeckMakerOpen(false);
+        }}
         onDeckGenerated={handleCreateDeck}
       />
+      </div>
     </div>
   );
 }

@@ -46,6 +46,26 @@ class SoundEffects {
     }
   }
 
+  playModalOpen() {
+    if (!this.enabled) return;
+    this.playChord([392.0, 523.25], 0.18, 0.045, 0.02);
+  }
+
+  playModalClose() {
+    if (!this.enabled) return;
+    this.playChord([523.25, 392.0], 0.14, 0.04, 0.03);
+  }
+
+  playSuccess() {
+    if (!this.enabled) return;
+    this.playChord([523.25, 659.25, 783.99], 0.22, 0.055, 0.02);
+  }
+
+  playProgress() {
+    if (!this.enabled) return;
+    this.playChord([261.63, 329.63, 392.0], 0.18, 0.04, 0.025);
+  }
+
   // Spaced repetition button feedback
   playRating(rating: 'again' | 'hard' | 'good' | 'easy') {
     if (!this.enabled) return;
@@ -78,18 +98,16 @@ class SoundEffects {
         osc.start(now);
         osc.stop(now + 0.12);
       } else if (rating === 'good') {
-        // Cheerful major third chime
-        this.playChord([523.25, 659.25], 0.18, 0.05);
+        this.playChord([523.25, 659.25], 0.18, 0.05, 0.02);
       } else {
-        // Easy - triumphant chord
-        this.playChord([523.25, 659.25, 783.99, 1046.5], 0.28, 0.06);
+        this.playChord([523.25, 659.25, 783.99, 1046.5], 0.28, 0.06, 0.02);
       }
     } catch {
       // Ignore
     }
   }
 
-  private playChord(freqs: number[], duration: number, volume: number) {
+  private playChord(freqs: number[], duration: number, volume: number, offset: number = 0.02) {
     const ctx = this.getContext();
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -98,15 +116,15 @@ class SoundEffects {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.03);
+      osc.frequency.setValueAtTime(freq, now + idx * offset);
 
-      gain.gain.setValueAtTime(volume, now + idx * 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration + idx * 0.03);
+      gain.gain.setValueAtTime(volume, now + idx * offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration + idx * offset);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(now + idx * 0.03);
-      osc.stop(now + duration + idx * 0.03);
+      osc.start(now + idx * offset);
+      osc.stop(now + duration + idx * offset);
     });
   }
 }

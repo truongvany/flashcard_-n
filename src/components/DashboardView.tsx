@@ -47,26 +47,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-8">
       
       {/* Top Greeting & Status Strip */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2 border-b border-slate-200/70">
+      <div className="flex flex-col gap-3 pb-2 border-b border-slate-200/70 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="flex items-center space-x-2 mb-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-2 mb-1">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
               {timeGreeting}, {userStats.name.split(' ')[0]}
             </h1>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+            <span className="inline-flex w-fit items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
               Synaptic Peak Active
             </span>
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
             CEFR Level: <span className="font-semibold text-slate-700">B2 / C1 Upper Intermediate</span> • Circadian retention efficiency is optimal right now.
           </p>
         </div>
 
         {/* Daily Goal Gauge */}
-        <div className="flex items-center space-x-4 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs">
+        <div className="flex items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs md:justify-start">
           <div className="relative w-12 h-12 flex items-center justify-center">
             <svg className="w-12 h-12 transform -rotate-90">
               <circle
@@ -104,24 +104,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Hero Study Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-10 shadow-xl">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-10 shadow-xl">
         <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
         <div className="absolute right-12 top-6 w-48 h-48 rounded-full bg-violet-500/15 blur-2xl pointer-events-none" />
 
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 text-xs font-semibold mb-4">
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 text-[10px] sm:text-xs font-semibold mb-4">
             <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
             <span>Spaced Repetition Queue</span>
           </div>
 
-          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3">
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-3 leading-tight">
             {totalDueCards} cards due today
           </h2>
-          <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
+          <p className="text-slate-300 text-xs sm:text-base leading-relaxed mb-5 sm:mb-6">
             Estimated ~12 mins session to maintain perfect retention. Rehearsing these items today prevents biological forgetting decay.
           </p>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <button
               id="dashboard-start-session-hero-btn"
               onClick={() => {
@@ -130,7 +130,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   onStartStudy(primaryDeck);
                 }
               }}
-              className="px-6 py-3.5 rounded-xl bg-white hover:bg-slate-100 text-slate-950 font-bold text-sm shadow-md transition-all cursor-pointer flex items-center space-x-2 group"
+              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white hover:bg-slate-100 text-slate-950 font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 group"
             >
               <span>Start Study Session</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -139,7 +139,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <button
               id="dashboard-practice-ai-hero-btn"
               onClick={onNavigatePractice}
-              className="px-5 py-3.5 rounded-xl bg-indigo-800/60 hover:bg-indigo-700/70 border border-indigo-400/30 text-indigo-100 font-semibold text-sm transition-all cursor-pointer flex items-center space-x-2"
+              className="w-full sm:w-auto px-4 py-3 rounded-xl bg-indigo-800/60 hover:bg-indigo-700/70 border border-indigo-400/30 text-indigo-100 font-semibold text-sm transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4 text-indigo-300" />
               <span>AI Context Sandbox</span>
