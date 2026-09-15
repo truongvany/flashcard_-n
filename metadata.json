@@ -1,0 +1,7 @@
+{
+  "name": "Memora - Smart Spaced Repetition Flashcards",
+  "description": "Creative AI-enhanced spaced repetition flashcard platform for language mastery, cognitive vocabulary retention, and contextual practice.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
