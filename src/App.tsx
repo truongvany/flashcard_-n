@@ -11,6 +11,7 @@ import { sounds } from './utils/audio';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { StudySessionView } from './components/StudySessionView';
+import { ReviewView } from './components/ReviewView';
 import { DecksView } from './components/DecksView';
 import { AiPracticeView } from './components/AiPracticeView';
 import { AnalyticsView } from './components/AnalyticsView';
@@ -48,6 +49,7 @@ export default function App() {
   });
 
   const [activeStudyDeck, setActiveStudyDeck] = useState<Deck>(decks[0] || INITIAL_DECKS[0]);
+  const [studyReturnView, setStudyReturnView] = useState<ViewMode>('dashboard');
   const [activityHistory, setActivityHistory] = useState<DayActivity[]>(() => generateActivityHistory());
   const [practiceWords, setPracticeWords] = useState<AiPracticeWord[]>(INITIAL_AI_PRACTICE_WORDS);
 
@@ -87,6 +89,33 @@ export default function App() {
   const handleStartStudy = (deck: Deck) => {
     sounds.playProgress();
     setActiveStudyDeck(deck);
+    setStudyReturnView('dashboard');
+    setCurrentView('study');
+  };
+
+  const learnedCards = decks.flatMap(deck =>
+    deck.cards.filter(card => card.status !== 'new').map(card => ({ card, deck }))
+  );
+
+  const handleStartReview = () => {
+    if (learnedCards.length === 0) return;
+
+    setActiveStudyDeck({
+      id: 'learned-words-review',
+      title: 'Learned Words Review',
+      category: 'Custom',
+      level: 'C1',
+      description: 'Review all vocabulary you have already studied.',
+      cardCount: learnedCards.length,
+      dueCount: learnedCards.length,
+      masteryRate: 0,
+      lastReviewed: 'Just now',
+      colorScheme: 'indigo',
+      tags: ['Review', 'Learned words'],
+      cards: learnedCards.map(({ card }) => card),
+    });
+    sounds.playProgress();
+    setStudyReturnView('review');
     setCurrentView('study');
   };
 
@@ -214,8 +243,12 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white overflow-x-hidden">
-      <div className="mx-auto w-full max-w-[480px] sm:max-w-full">
+    <div className="app-shell min-h-screen home-background text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white overflow-x-hidden">
+      <div className="home-background-art" aria-hidden="true">
+        <span className="home-background-wing home-background-wing-left" />
+        <span className="home-background-wing home-background-wing-right" />
+      </div>
+      <div className="relative z-10 mx-auto w-full max-w-[480px] sm:max-w-full">
       {/* Global Navigation Header */}
       <Navbar
         currentView={currentView}
@@ -240,7 +273,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-16">
+      <main className="flex-1 pb-24 md:pb-16">
         {currentView === 'dashboard' && (
           <DashboardView
             userStats={userStats}
@@ -264,9 +297,16 @@ export default function App() {
         {currentView === 'study' && (
           <StudySessionView
             deck={activeStudyDeck}
-            onEndSession={() => setCurrentView('dashboard')}
+            onEndSession={() => setCurrentView(studyReturnView)}
             onCardReviewed={handleCardReviewed}
             onDeckCompleted={handleDeckCompleted}
+          />
+        )}
+
+        {currentView === 'review' && (
+          <ReviewView
+            decks={decks}
+            onStartReview={handleStartReview}
           />
         )}
 

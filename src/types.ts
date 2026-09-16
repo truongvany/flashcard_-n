@@ -71,7 +71,7 @@ export interface UserStats {
   autoplayAudio: boolean;
 }
 
-export type ViewMode = 'dashboard' | 'study' | 'decks' | 'analytics' | 'practice' | 'profile';
+export type ViewMode = 'dashboard' | 'study' | 'review' | 'decks' | 'analytics' | 'practice' | 'profile';
 
 export interface AiPracticeWord {
   word: string;

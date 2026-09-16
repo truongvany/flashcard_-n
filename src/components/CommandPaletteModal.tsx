@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Deck, Card, ViewMode } from '../types';
-import { Search, BookOpen, Layers, Bot, BarChart3, User, ArrowRight, X } from 'lucide-react';
+import { Search, BookOpen, Layers, Bot, BarChart3, User, ArrowRight, X, RotateCcw } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
 interface CommandPaletteModalProps {
@@ -63,6 +63,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   const navigationActions = [
     { label: 'Go to Dashboard', view: 'dashboard' as ViewMode, icon: <Layers className="w-4 h-4" /> },
     { label: 'Open Study Session', view: 'study' as ViewMode, icon: <BookOpen className="w-4 h-4" /> },
+    { label: 'Review Learned Words', view: 'review' as ViewMode, icon: <RotateCcw className="w-4 h-4" /> },
     { label: 'Browse Decks & Library', view: 'decks' as ViewMode, icon: <Layers className="w-4 h-4" /> },
     { label: 'AI Context Practice', view: 'practice' as ViewMode, icon: <Bot className="w-4 h-4" /> },
     { label: 'Retention Analytics', view: 'analytics' as ViewMode, icon: <BarChart3 className="w-4 h-4" /> },

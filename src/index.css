@@ -17,6 +17,120 @@
   .rotate-y-180 {
     transform: rotateY(180deg);
   }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+  }
+  .glass-dark {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(16px);
+  }
+}
+
+.home-background {
+  position: relative;
+  isolation: isolate;
+  background: #fff;
+}
+
+.home-background::before {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-color: #fff;
+  background-image: radial-gradient(circle, rgba(125, 190, 231, 0.2) 1.5px, transparent 1.8px);
+  background-position: center;
+  background-size: 28px 28px;
+  content: '';
+  pointer-events: none;
+}
+
+.home-background-art {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 210px;
+  height: 92px;
+  transform: translate(-50%, -50%);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.home-background-wing {
+  position: absolute;
+  top: 14px;
+  width: 92px;
+  height: 58px;
+  border: 2px solid rgba(148, 163, 184, 0.28);
+  border-radius: 72% 28% 68% 32%;
+}
+
+.home-background-wing::after {
+  position: absolute;
+  top: 25px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(148, 163, 184, 0.28);
+  border-radius: 50%;
+  content: '';
+}
+
+.home-background-wing-left {
+  left: 4px;
+  transform: rotate(24deg) skewX(-8deg);
+}
+
+.home-background-wing-left::after {
+  right: -2px;
+}
+
+.home-background-wing-right {
+  right: 4px;
+  transform: scaleX(-1) rotate(24deg) skewX(-8deg);
+}
+
+.home-background-wing-right::after {
+  right: -2px;
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(15px, -15px) scale(1.08);
+  }
+}
+
+@keyframes floatReverse {
+  0%, 100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(-12px, 12px) scale(0.94);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 8s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: floatReverse 10s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s infinite;
 }
 
 /* Custom smooth scrollbar */
@@ -34,3 +148,5 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.6);
 }
+
+

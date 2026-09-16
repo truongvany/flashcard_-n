@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { UserStats, DayActivity } from '../types';
 import { 
   TrendingUp, 
@@ -9,12 +10,61 @@ import {
   Award, 
   CheckCircle2, 
   Flame, 
-  Layers 
+  Layers,
+  Zap,
+  BarChart3,
+  Clock,
+  Activity,
+  FileText,
+  ChevronRight,
+  ShieldCheck
 } from 'lucide-react';
 
 interface AnalyticsViewProps {
   userStats: UserStats;
   activityHistory: DayActivity[];
+}
+
+// Framer Motion Animation Variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { type: 'spring' as const, stiffness: 350, damping: 25 },
+  },
+};
+
+const cardHover = {
+  rest: { y: 0, scale: 1, boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)" },
+  hover: { 
+    y: -4, 
+    scale: 1.008, 
+    boxShadow: "0 12px 24px -10px rgba(79, 70, 229, 0.12)",
+    transition: { type: 'spring' as const, stiffness: 400, damping: 20 } 
+  },
+  tap: { scale: 0.98 }
+};
+
+interface ChartPoint {
+  day: string;
+  srsPct: number;
+  decayPct: number;
+  cx: number;
+  cySrs: number;
+  cyDecay: number;
+  note: string;
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
@@ -23,8 +73,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
 }) => {
   const [timeFilter, setTimeFilter] = useState<'7d' | '30d' | '3m' | 'all'>('30d');
   const [hoveredDay, setHoveredDay] = useState<DayActivity | null>(null);
+  const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null);
 
-  // Group activity into weeks for heatmap (13 weeks x 7 days)
+  // Group activity into weeks for 90-day heatmap (13 weeks x 7 days)
   const weeks: DayActivity[][] = [];
   let currentWeek: DayActivity[] = [];
 
@@ -37,22 +88,72 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   });
 
   const getHeatmapColor = (count: number) => {
-    if (count === 0) return 'bg-slate-100 border border-slate-200/50';
-    if (count < 15) return 'bg-emerald-200 border border-emerald-300';
-    if (count < 28) return 'bg-emerald-400 border border-emerald-500';
-    return 'bg-emerald-600 border border-emerald-700';
+    if (count === 0) return 'bg-slate-100 border border-slate-200/50 hover:bg-slate-200';
+    if (count < 15) return 'bg-emerald-200 border border-emerald-300 hover:bg-emerald-300';
+    if (count < 28) return 'bg-emerald-400 border border-emerald-500 hover:bg-emerald-500';
+    return 'bg-emerald-600 border border-emerald-700 hover:bg-emerald-700';
+  };
+
+  // Retention Trajectory Chart Points Data
+  const chartPoints: ChartPoint[] = [
+    { day: 'Day 1', srsPct: 100, decayPct: 100, cx: 50, cySrs: 40, cyDecay: 40, note: 'Initial Learning Phase: 100% Neural Encoding' },
+    { day: 'Day 3', srsPct: 92, decayPct: 62, cx: 160, cySrs: 56, cyDecay: 116, note: '1st SM-2 Repetition: Prevents 38% Forgetting Decay' },
+    { day: 'Day 7', srsPct: 94, decayPct: 40, cx: 310, cySrs: 52, cyDecay: 160, note: '2nd SM-2 Repetition: Long-term Synaptic Consolidation' },
+    { day: 'Day 14', srsPct: 96, decayPct: 24, cx: 480, cySrs: 48, cyDecay: 192, note: '3rd SM-2 Repetition: Deep Memory Matrix Stabilization' },
+    { day: 'Day 30', srsPct: 98, decayPct: 15, cx: 650, cySrs: 44, cyDecay: 210, note: 'Mature State: Permanent Storage in Long-term Memory' },
+    { day: 'Day 60+', srsPct: 95, decayPct: 10, cx: 770, cySrs: 50, cyDecay: 220, note: 'Permanent Retention: Maintenance Interval > 60 Days' },
+  ];
+
+  // Handler: Export CSV
+  const handleExportCSV = () => {
+    const csvRows = ['Date,Cards Reviewed,Session Accuracy %'];
+    activityHistory.forEach(item => {
+      csvRows.push(`${item.date},${item.count},${item.accuracy}`);
+    });
+    const csvStr = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvRows.join('\n'));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', csvStr);
+    downloadAnchor.setAttribute('download', `memora-analytics-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  // Handler: Export JSON
+  const handleExportJSON = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(activityHistory, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `memora-analytics-${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 sm:space-y-8"
+    >
       
-      {/* Analytics Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
+      {/* Executive Analytics Header */}
+      <motion.div 
+        variants={itemVariants}
+        className="bg-white/85 backdrop-blur-md p-4 sm:p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+      >
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 block mb-1">
-            Cognitive Dynamics
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
+              Cognitive Analytics Suite
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Real-Time SM-2 Sync</span>
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             Memory Dynamics & Retention
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -60,203 +161,377 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
-          {/* Time filters */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl">
-            {(['7d', '30d', '3m', 'all'] as const).map((period) => (
-              <button
-                key={period}
-                onClick={() => setTimeFilter(period)}
-                className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  timeFilter === period
-                    ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                {period === '7d' ? '7 Days' : period === '30d' ? '30 Days' : period === '3m' ? '3 Months' : 'All Time'}
-              </button>
-            ))}
+        {/* Time Filters & Export Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Morphing Tab Period Filters */}
+          <div className="relative flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+            {[
+              { id: '7d', label: '7 Days' },
+              { id: '30d', label: '30 Days' },
+              { id: '3m', label: '3 Months' },
+              { id: 'all', label: 'All Time' },
+            ].map((period) => {
+              const isActive = timeFilter === period.id;
+              return (
+                <button
+                  key={period.id}
+                  onClick={() => setTimeFilter(period.id as any)}
+                  className={`relative z-10 px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                    isActive ? 'text-indigo-600 font-bold' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="analyticsTimeTab"
+                      transition={{ type: 'spring' as const, stiffness: 450, damping: 30 }}
+                      className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10"
+                    />
+                  )}
+                  {period.label}
+                </button>
+              );
+            })}
           </div>
 
-          <button
-            onClick={() => {
-              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activityHistory, null, 2));
-              const downloadAnchor = document.createElement('a');
-              downloadAnchor.setAttribute("href", dataStr);
-              downloadAnchor.setAttribute("download", "memora-memory-analytics.json");
-              document.body.appendChild(downloadAnchor);
-              downloadAnchor.click();
-              downloadAnchor.remove();
-            }}
-            className="p-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-            title="Export analytics data"
-          >
-            <Download className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+          {/* Export Buttons */}
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleExportCSV}
+              className="p-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              title="Export Analytics as CSV"
+            >
+              <FileText className="w-4 h-4 text-indigo-600" />
+              <span className="hidden sm:inline">CSV</span>
+            </motion.button>
 
-      {/* 3 Top Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
-            Total Encoded Lexicon
-          </span>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleExportJSON}
+              className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+              title="Export Full Analytics Data JSON"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">JSON</span>
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* 4 Executive Key Metrics Tiles */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        
+        {/* Metric 1: Total Encoded Lexicon */}
+        <motion.div 
+          initial="rest"
+          whileHover="hover"
+          whileTap="tap"
+          variants={cardHover}
+          className="p-5 rounded-2xl bg-white border border-slate-200/80 cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Total Encoded Lexicon
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-2xs">
+              <BrainCircuit className="w-5 h-5" />
+            </div>
+          </div>
           <div className="flex items-baseline space-x-2 mb-1">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <span className="text-3xl font-black text-slate-900 tracking-tight">
               {userStats.totalWordsMastered.toLocaleString()}
             </span>
-            <span className="text-xs font-bold text-emerald-600">+4.2% growth</span>
-          </div>
-          <p className="text-xs text-slate-500">
-            +48 words promoted to long-term memory this cycle.
-          </p>
-        </div>
-
-        <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
-            Daily Recall Velocity
-          </span>
-          <div className="flex items-baseline space-x-2 mb-1">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
-              24 Cards/Day
+            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+              +4.2% Growth
             </span>
-            <span className="text-xs font-bold text-indigo-600">120% Pacing</span>
           </div>
-          <p className="text-xs text-slate-500">
-            Average review completion speed: 4.8s per card.
-          </p>
-        </div>
+          <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+            <span className="text-slate-500">Promoted Words</span>
+            <span className="font-semibold text-slate-700">+48 cards/cycle</span>
+          </div>
+        </motion.div>
 
-        <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
-            Active Retention Rate
-          </span>
+        {/* Metric 2: Daily Recall Velocity */}
+        <motion.div 
+          initial="rest"
+          whileHover="hover"
+          whileTap="tap"
+          variants={cardHover}
+          className="p-5 rounded-2xl bg-white border border-slate-200/80 cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Daily Recall Velocity
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-2xs">
+              <Zap className="w-5 h-5 fill-amber-500 text-amber-500" />
+            </div>
+          </div>
           <div className="flex items-baseline space-x-2 mb-1">
-            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <span className="text-3xl font-black text-slate-900 tracking-tight">
+              24 <span className="text-base font-semibold text-slate-600">Cards/Day</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+            <span className="text-slate-500">Avg Speed</span>
+            <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200/60">
+              4.8s / Card
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Metric 3: Active Retention Rate */}
+        <motion.div 
+          initial="rest"
+          whileHover="hover"
+          whileTap="tap"
+          variants={cardHover}
+          className="p-5 rounded-2xl bg-white border border-slate-200/80 cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Active Retention Rate
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-2xs">
+              <Target className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline space-x-2 mb-1">
+            <span className="text-3xl font-black text-slate-900 tracking-tight">
               {userStats.sessionAccuracy}%
             </span>
-            <span className="text-xs font-bold text-emerald-600">Optimal Zone</span>
+            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+              Optimal Zone
+            </span>
           </div>
-          <p className="text-xs text-slate-500">
-            Target retention: {userStats.desiredRetention}% (±1.4% algorithmic variance).
-          </p>
-        </div>
-      </div>
+          <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+            <span className="text-slate-500">Target Benchmark</span>
+            <span className="font-semibold text-slate-700">{userStats.desiredRetention}% Target</span>
+          </div>
+        </motion.div>
+
+        {/* Metric 4: Spaced Repetition Stability */}
+        <motion.div 
+          initial="rest"
+          whileHover="hover"
+          whileTap="tap"
+          variants={cardHover}
+          className="p-5 rounded-2xl bg-white border border-slate-200/80 cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              SM-2 Stability Index
+            </span>
+            <div className="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shadow-2xs">
+              <Activity className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline space-x-2 mb-1">
+            <span className="text-3xl font-black text-slate-900 tracking-tight">
+              2.54 <span className="text-sm font-normal text-slate-500">Ease Factor</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+            <span className="text-slate-500">Memory Half-Life</span>
+            <span className="font-semibold text-slate-700">~28.5 Days</span>
+          </div>
+        </motion.div>
+
+      </motion.div>
 
       {/* Retention Trajectory Chart (Ebbinghaus vs Spaced Repetition) */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <motion.div 
+        variants={itemVariants}
+        className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-6"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">
-              Retention Trajectory: Spaced Repetition vs. Biological Decay
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-extrabold text-slate-900">
+                Retention Trajectory: Spaced Repetition vs Biological Decay
+              </h3>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">Interactive</span>
+            </div>
             <p className="text-xs text-slate-500">
               Visualizing the neurological impact of timed reviews against standard Ebbinghaus forgetting curves.
             </p>
           </div>
 
-          <div className="flex items-center space-x-4 text-xs font-semibold">
-            <div className="flex items-center space-x-1.5">
-              <span className="w-3 h-3 rounded-full bg-indigo-600 inline-block" />
-              <span className="text-slate-700">Memora SRS (Actual)</span>
+          <div className="flex items-center space-x-5 text-xs font-semibold shrink-0">
+            <div className="flex items-center space-x-2">
+              <span className="w-3 h-3 rounded-full bg-indigo-600 shadow-2xs inline-block" />
+              <span className="text-slate-800">Memora SRS (Actual)</span>
             </div>
-            <div className="flex items-center space-x-1.5">
+            <div className="flex items-center space-x-2">
               <span className="w-3 h-0.5 bg-rose-400 border-t border-dashed border-rose-500 inline-block" />
               <span className="text-slate-400">Natural Decay (Without SRS)</span>
             </div>
           </div>
         </div>
 
-        {/* Responsive SVG Chart */}
-        <div className="w-full h-64 sm:h-72 relative">
-          <svg className="w-full h-full" viewBox="0 0 800 280" preserveAspectRatio="none">
-            {/* Grid lines */}
-            <line x1="40" y1="40" x2="780" y2="40" stroke="#f1f5f9" strokeWidth="1" />
-            <line x1="40" y1="100" x2="780" y2="100" stroke="#f1f5f9" strokeWidth="1" />
-            <line x1="40" y1="160" x2="780" y2="160" stroke="#f1f5f9" strokeWidth="1" />
-            <line x1="40" y1="220" x2="780" y2="220" stroke="#f1f5f9" strokeWidth="1" />
+        {/* Responsive Interactive SVG Chart */}
+        <div className="w-full h-72 relative bg-gradient-to-b from-slate-50/50 to-white rounded-2xl p-4 border border-slate-100">
+          <svg className="w-full h-full" viewBox="0 0 820 250" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="srsGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+
+            {/* Background Grid Lines */}
+            <line x1="40" y1="20" x2="800" y2="20" stroke="#e2e8f0" strokeDasharray="3,3" strokeWidth="1" />
+            <line x1="40" y1="70" x2="800" y2="70" stroke="#f1f5f9" strokeWidth="1" />
+            <line x1="40" y1="120" x2="800" y2="120" stroke="#f1f5f9" strokeWidth="1" />
+            <line x1="40" y1="170" x2="800" y2="170" stroke="#f1f5f9" strokeWidth="1" />
+            <line x1="40" y1="220" x2="800" y2="220" stroke="#cbd5e1" strokeWidth="1.5" />
 
             {/* Y-Axis Labels */}
-            <text x="10" y="45" fill="#94a3b8" fontSize="11" fontWeight="600">100%</text>
-            <text x="15" y="105" fill="#94a3b8" fontSize="11" fontWeight="600">75%</text>
-            <text x="15" y="165" fill="#94a3b8" fontSize="11" fontWeight="600">50%</text>
-            <text x="15" y="225" fill="#94a3b8" fontSize="11" fontWeight="600">25%</text>
+            <text x="10" y="24" fill="#94a3b8" fontSize="11" fontWeight="600">100%</text>
+            <text x="15" y="74" fill="#94a3b8" fontSize="11" fontWeight="600">75%</text>
+            <text x="15" y="124" fill="#94a3b8" fontSize="11" fontWeight="600">50%</text>
+            <text x="15" y="174" fill="#94a3b8" fontSize="11" fontWeight="600">25%</text>
 
-            {/* Natural Biological Decay (Steep downward exponential curve) */}
+            {/* Natural Biological Decay Curve (Dashed Rose Line) */}
             <path
-              d="M 50 50 Q 150 190, 300 230 T 780 245"
+              d="M 50 20 Q 150 170, 310 200 T 770 215"
               fill="none"
               stroke="#fb7185"
               strokeWidth="2.5"
               strokeDasharray="6,6"
             />
 
-            {/* Memora Spaced Repetition Reinforcement Curve (Sawtooth sawtooth that stabilizes at 90%) */}
+            {/* Area Fill under Memora SRS Curve */}
             <path
-              d="M 50 50 L 120 120 L 125 55 L 240 100 L 245 52 L 420 85 L 425 50 L 620 70 L 625 48 L 780 60"
+              d="M 50 20 L 160 56 L 310 52 L 480 48 L 650 44 L 770 50 L 770 220 L 50 220 Z"
+              fill="url(#srsGradient)"
+            />
+
+            {/* Memora Spaced Repetition Reinforcement Curve (Solid Vibrant Indigo Line) */}
+            <motion.path
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 1.5, ease: "easeInOut" }}
+              d="M 50 20 L 160 56 L 310 52 L 480 48 L 650 44 L 770 50"
               fill="none"
               stroke="#4f46e5"
               strokeWidth="3.5"
               strokeLinecap="round"
+              strokeLinejoin="round"
             />
 
-            {/* Active Reinforcement nodes */}
-            <circle cx="50" cy="50" r="5" fill="#4f46e5" />
-            <circle cx="125" cy="55" r="5" fill="#4f46e5" />
-            <circle cx="245" cy="52" r="5" fill="#4f46e5" />
-            <circle cx="425" cy="50" r="5" fill="#4f46e5" />
-            <circle cx="625" cy="48" r="5" fill="#4f46e5" />
-            <circle cx="780" cy="60" r="5" fill="#4f46e5" />
+            {/* Interactive Nodes for SRS Data Points */}
+            {chartPoints.map((pt, idx) => (
+              <g key={idx} className="cursor-pointer" onMouseEnter={() => setHoveredPoint(pt)}>
+                <circle
+                  cx={pt.cx}
+                  cy={pt.cySrs}
+                  r="7"
+                  fill="#ffffff"
+                  stroke="#4f46e5"
+                  strokeWidth="3.5"
+                  className="transition-transform duration-200 hover:scale-150"
+                />
+                <circle
+                  cx={pt.cx}
+                  cy={pt.cySrs}
+                  r="3"
+                  fill="#4f46e5"
+                />
+              </g>
+            ))}
 
-            {/* X-Axis time markers */}
-            <text x="50" y="265" fill="#94a3b8" fontSize="11">Day 1</text>
-            <text x="125" y="265" fill="#94a3b8" fontSize="11">Day 3</text>
-            <text x="245" y="265" fill="#94a3b8" fontSize="11">Day 7</text>
-            <text x="425" y="265" fill="#94a3b8" fontSize="11">Day 14</text>
-            <text x="625" y="265" fill="#94a3b8" fontSize="11">Day 30</text>
-            <text x="740" y="265" fill="#94a3b8" fontSize="11">Day 60+</text>
+            {/* X-Axis Time Markers */}
+            <text x="40" y="240" fill="#64748b" fontSize="11" fontWeight="700">Day 1</text>
+            <text x="150" y="240" fill="#64748b" fontSize="11" fontWeight="700">Day 3</text>
+            <text x="300" y="240" fill="#64748b" fontSize="11" fontWeight="700">Day 7</text>
+            <text x="470" y="240" fill="#64748b" fontSize="11" fontWeight="700">Day 14</text>
+            <text x="640" y="240" fill="#64748b" fontSize="11" fontWeight="700">Day 30</text>
+            <text x="755" y="240" fill="#64748b" fontSize="11" fontWeight="700">Day 60+</text>
           </svg>
         </div>
-      </div>
 
-      {/* Card Maturity Distribution & Daily Goal */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Hover Point Interactive Tooltip Bar */}
+        <div className="min-h-[42px] p-3 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between text-xs text-indigo-950">
+          {hoveredPoint ? (
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-indigo-700 bg-white px-2 py-0.5 rounded shadow-2xs border border-indigo-100">
+                {hoveredPoint.day}
+              </span>
+              <span className="font-semibold text-slate-800">
+                Memora SRS Retention: <strong className="text-indigo-600">{hoveredPoint.srsPct}%</strong> vs Natural Decay: <strong className="text-rose-500">{hoveredPoint.decayPct}%</strong>
+              </span>
+              <span className="hidden md:inline text-slate-500 font-normal">
+                • {hoveredPoint.note}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-slate-500">
+              <Zap className="w-4 h-4 text-indigo-600" />
+              <span>Hover over any node on the curve to inspect neuro-retention specifics and interval milestones.</span>
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Card Maturity Distribution & Habit Peak Grid */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Card Maturity Breakdown */}
         <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-2xs space-y-4">
-          <h3 className="font-bold text-slate-900 text-sm">
-            Card Maturity Breakdown
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <Layers className="w-4 h-4 text-indigo-600" />
+              <span>Card Maturity Distribution</span>
+            </h3>
+            <span className="text-xs font-semibold text-slate-400">Total: 1,240 Cards</span>
+          </div>
           
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="font-medium text-slate-600">Mature (&gt;21 days interval)</span>
-                <span className="font-bold text-emerald-600">{userStats.maturePct}% (719 words)</span>
+              <div className="flex justify-between text-xs mb-1.5">
+                <span className="font-semibold text-slate-700">Mature Phase (&gt;21 days interval)</span>
+                <span className="font-extrabold text-emerald-600">{userStats.maturePct}% (719 words)</span>
               </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${userStats.maturePct}%` }} />
+              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${userStats.maturePct}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="bg-gradient-to-r from-emerald-500 to-teal-500 h-full rounded-full" 
+                />
               </div>
             </div>
 
             <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="font-medium text-slate-600">Learning Phase (1-21 days)</span>
-                <span className="font-bold text-indigo-600">{userStats.learningPct}% (335 words)</span>
+              <div className="flex justify-between text-xs mb-1.5">
+                <span className="font-semibold text-slate-700">Learning Phase (1-21 days)</span>
+                <span className="font-extrabold text-indigo-600">{userStats.learningPct}% (335 words)</span>
               </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${userStats.learningPct}%` }} />
+              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${userStats.learningPct}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full" 
+                />
               </div>
             </div>
 
             <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="font-medium text-slate-600">Fresh Unseen (Queue)</span>
-                <span className="font-bold text-slate-500">{userStats.unseenPct}% (186 words)</span>
+              <div className="flex justify-between text-xs mb-1.5">
+                <span className="font-semibold text-slate-700">Fresh Unseen Queue</span>
+                <span className="font-extrabold text-slate-600">{userStats.unseenPct}% (186 words)</span>
               </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-slate-400 h-full rounded-full" style={{ width: `${userStats.unseenPct}%` }} />
+              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${userStats.unseenPct}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="bg-slate-400 h-full rounded-full" 
+                />
               </div>
             </div>
           </div>
@@ -266,50 +541,54 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         <div className="p-6 rounded-2xl bg-white border border-slate-200/80 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center space-x-2 mb-2">
-              <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
+              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
                 <Flame className="w-4 h-4 fill-amber-500" />
-              </span>
+              </div>
               <h3 className="font-bold text-slate-900 text-sm">
-                Habit Retention Streak
+                Habit Retention & Peak Focus
               </h3>
             </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Your neural memory consolidates best during your morning cognitive peak between <span className="font-semibold text-slate-800">08:30 AM – 10:00 AM</span>.
+            <p className="text-xs text-slate-500 leading-relaxed mb-4">
+              Your neural memory consolidates best during your morning cognitive peak between <span className="font-bold text-slate-800">08:30 AM – 10:00 AM</span>. Maintaining continuous streak habits prevents memory decay.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
-            <div className="p-3 rounded-xl bg-slate-50 text-center">
-              <span className="text-[11px] text-slate-400 block mb-0.5">Current Streak</span>
-              <span className="text-xl font-bold text-slate-900">{userStats.currentStreak} Days</span>
+            <div className="p-3.5 rounded-xl bg-slate-50 text-center border border-slate-100">
+              <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Current Streak</span>
+              <span className="text-2xl font-black text-slate-900">{userStats.currentStreak} Days</span>
             </div>
-            <div className="p-3 rounded-xl bg-slate-50 text-center">
-              <span className="text-[11px] text-slate-400 block mb-0.5">Longest Streak</span>
-              <span className="text-xl font-bold text-indigo-600">{userStats.longestStreak} Days</span>
+            <div className="p-3.5 rounded-xl bg-slate-50 text-center border border-slate-100">
+              <span className="text-[11px] font-semibold text-slate-400 block mb-0.5">Longest Streak</span>
+              <span className="text-2xl font-black text-indigo-600">{userStats.longestStreak} Days</span>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* 90-Day Memory Consistency Heatmap */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <motion.div 
+        variants={itemVariants}
+        className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 className="text-base font-bold text-slate-900">
-              90-Day Memory Consistency Calendar
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-600" />
+              <span>90-Day Memory Consistency Matrix</span>
             </h3>
             <p className="text-xs text-slate-500">
               Daily repetition frequency across 13 weeks of spaced recall.
             </p>
           </div>
 
-          {/* Legend */}
-          <div className="flex items-center space-x-2 text-[11px] text-slate-400">
+          {/* Color Legend */}
+          <div className="flex items-center space-x-2 text-[11px] font-medium text-slate-500">
             <span>Less</span>
-            <div className="w-3 h-3 rounded bg-slate-100 border border-slate-200" />
-            <div className="w-3 h-3 rounded bg-emerald-200" />
-            <div className="w-3 h-3 rounded bg-emerald-400" />
-            <div className="w-3 h-3 rounded bg-emerald-600" />
+            <div className="w-3.5 h-3.5 rounded bg-slate-100 border border-slate-200" />
+            <div className="w-3.5 h-3.5 rounded bg-emerald-200" />
+            <div className="w-3.5 h-3.5 rounded bg-emerald-400" />
+            <div className="w-3.5 h-3.5 rounded bg-emerald-600" />
             <span>More</span>
           </div>
         </div>
@@ -320,11 +599,12 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex flex-col gap-1.5">
                 {week.map((day) => (
-                  <div
+                  <motion.div
                     key={day.date}
+                    whileHover={{ scale: 1.35, zIndex: 10 }}
                     onMouseEnter={() => setHoveredDay(day)}
                     onMouseLeave={() => setHoveredDay(null)}
-                    className={`w-4 h-4 rounded-md transition-transform hover:scale-125 cursor-pointer ${getHeatmapColor(day.count)}`}
+                    className={`w-4 h-4 rounded-md transition-colors cursor-pointer ${getHeatmapColor(day.count)}`}
                     title={`${day.date}: ${day.count} cards reviewed`}
                   />
                 ))}
@@ -334,16 +614,21 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         </div>
 
         {/* Hovered Day Details tooltip bar */}
-        <div className="h-6 flex items-center text-xs text-slate-500">
+        <div className="min-h-[38px] p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center text-xs text-slate-600">
           {hoveredDay ? (
-            <span className="font-medium text-slate-800">
-              📅 {hoveredDay.date}: <span className="font-bold text-emerald-600">{hoveredDay.count} cards reviewed</span> ({hoveredDay.accuracy}% session accuracy)
+            <span className="font-medium text-slate-800 flex items-center gap-2">
+              <span>📅 <strong className="text-slate-900">{hoveredDay.date}</strong>:</span>
+              <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/60">
+                {hoveredDay.count} cards reviewed
+              </span>
+              <span className="text-slate-500 font-semibold">({hoveredDay.accuracy}% session accuracy)</span>
             </span>
           ) : (
-            <span className="text-slate-400 text-[11px]">Hover over any cell to view session specifics.</span>
+            <span className="text-slate-400 text-[11px]">Hover over any day square in the matrix to view specific session statistics.</span>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+
+    </motion.div>
   );
 };
