@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ViewMode, UserStats } from '../types';
 import { 
   Sparkles, 
@@ -8,11 +9,7 @@ import {
   BookOpen, 
   RotateCcw,
   BarChart3, 
-  Bot, 
-  User, 
-  Plus, 
-  Volume2, 
-  VolumeX 
+  Bot,
 } from 'lucide-react';
 import { sounds } from '../utils/audio';
 
@@ -26,108 +23,161 @@ interface NavbarProps {
   onToggleSound: () => void;
 }
 
+const navItems: { id: ViewMode; label: string; Icon: React.FC<{ className?: string }> }[] = [
+  { id: 'dashboard', label: 'Home',    Icon: ({ className }) => <Layers    className={className} /> },
+  { id: 'decks',     label: 'Library', Icon: ({ className }) => <BookOpen  className={className} /> },
+  { id: 'review',    label: 'Review',  Icon: ({ className }) => <RotateCcw className={className} /> },
+  { id: 'practice',  label: 'AI',      Icon: ({ className }) => <Bot       className={className} /> },
+  { id: 'analytics', label: 'Stats',   Icon: ({ className }) => <BarChart3 className={className} /> },
+];
+
 export const Navbar: React.FC<NavbarProps> = ({
   currentView,
   onNavigate,
   userStats,
   onOpenCommandPalette,
-  onOpenNewDeck,
-  soundEnabled,
-  onToggleSound,
 }) => {
-  const navItems: { id: ViewMode; label: string; icon: React.ReactNode }[] = [
-    { id: 'dashboard', label: 'Home', icon: <Layers className="w-5 h-5" /> },
-    { id: 'decks', label: 'Library', icon: <BookOpen className="w-5 h-5" /> },
-    { id: 'review', label: 'Review', icon: <RotateCcw className="w-5 h-5" /> },
-    { id: 'practice', label: 'AI', icon: <Bot className="w-5 h-5" /> },
-    { id: 'analytics', label: 'Stats', icon: <BarChart3 className="w-5 h-5" /> },
-  ];
-
   return (
     <>
-      {/* TOP HEADER (Sticky for both Mobile & Desktop) */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between gap-4">
-            
-            {/* Logo */}
-            <div className="flex items-center gap-5">
-              <button
-                id="nav-brand-logo"
-                onClick={() => onNavigate('dashboard')}
-                className="group flex items-center gap-2 focus:outline-none"
+      {/* ═══════════════════════════════════════════════════════════════
+          TOP HEADER — Fixed on mobile, sticky on desktop
+          Liquid Glass: multi-layer white/blur with border shimmer
+      ═══════════════════════════════════════════════════════════════ */}
+      <header
+        className="fixed top-0 inset-x-0 z-50 md:sticky"
+        style={{
+          background: 'linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.72) 50%, rgba(238,242,255,0.70) 100%)',
+          backdropFilter: 'blur(24px) saturate(1.8)',
+          WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+          borderBottom: '1px solid rgba(255,255,255,0.55)',
+          boxShadow: '0 1px 0 rgba(99,102,241,0.06), 0 4px 24px rgba(99,102,241,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
+        }}
+      >
+        {/* Subtle inner shimmer layer */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(255,255,255,0.6) 0%, transparent 100%)',
+          }}
+        />
+
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between gap-3">
+
+            {/* Brand */}
+            <button
+              id="nav-brand-logo"
+              onClick={() => onNavigate('dashboard')}
+              className="flex items-center gap-2 shrink-0 focus:outline-none"
+            >
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-xl shadow-sm"
+                style={{
+                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  boxShadow: '0 4px 12px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
+                }}
               >
-                <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-sm transition-transform duration-200 group-hover:scale-105">
-                  <span className="relative text-sm font-black tracking-widest text-white">M</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-xl font-black tracking-tight text-slate-900">Memora</span>
-                  <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-700">
-                    AI
-                  </span>
-                </div>
-              </button>
+                <span className="text-sm font-black text-white tracking-wide">M</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[18px] font-black tracking-tight text-slate-900">Memora</span>
+                <span
+                  className="rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(99,102,241,0.08))',
+                    border: '1px solid rgba(139,92,246,0.25)',
+                    color: '#7c3aed',
+                  }}
+                >
+                  AI
+                </span>
+              </div>
+            </button>
 
-              {/* Desktop Menu */}
-              <nav className="hidden items-center gap-1 md:flex ml-6">
-                {navItems.map((item) => {
-                  const isActive = currentView === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        sounds.playFlip();
-                        onNavigate(item.id);
-                      }}
-                      className={`group flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all duration-200 ${
-                        isActive
-                          ? 'bg-indigo-50 text-indigo-700'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                      }`}
-                    >
-                      <span className={`${isActive ? 'text-indigo-600' : 'text-slate-500 group-hover:text-slate-700'}`}>
-                        {item.icon}
-                      </span>
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
+            {/* Desktop nav */}
+            <nav className="hidden md:flex items-center gap-1 ml-6">
+              {navItems.map(({ id, label, Icon }) => {
+                const active = currentView === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => { sounds.playFlip(); onNavigate(id); }}
+                    className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all duration-200 ${
+                      active
+                        ? 'text-indigo-700'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    style={active ? {
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(238,242,255,0.8) 100%)',
+                      border: '1px solid rgba(99,102,241,0.18)',
+                      boxShadow: '0 2px 8px rgba(99,102,241,0.10), inset 0 1px 0 rgba(255,255,255,0.8)',
+                    } : undefined}
+                  >
+                    <Icon className={`w-4 h-4 ${active ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    {label}
+                  </button>
+                );
+              })}
+            </nav>
 
-            {/* Actions (Search, Stats, Profile) */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            {/* Right actions */}
+            <div className="flex items-center gap-2">
+              {/* Search */}
               <button
                 onClick={onOpenCommandPalette}
-                className="flex items-center justify-center h-9 w-9 sm:w-auto sm:px-3 sm:py-2 gap-2 rounded-xl bg-slate-100/80 text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors"
+                className="flex items-center justify-center h-9 w-9 rounded-xl transition-colors"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.80), rgba(248,250,252,0.60))',
+                  border: '1px solid rgba(226,232,240,0.80)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+                }}
                 title="Search (⌘K)"
               >
-                <Search className="h-4 w-4" />
-                <span className="hidden sm:inline text-xs font-semibold">Search</span>
+                <Search className="h-4 w-4 text-slate-500" />
               </button>
 
+              {/* Streak pill */}
               <div
-                className="flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-2.5 py-1.5 text-xs font-bold text-amber-600"
-                title={`${userStats.currentStreak} day learning streak!`}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.85), rgba(254,243,199,0.70))',
+                  border: '1px solid rgba(251,191,36,0.30)',
+                  boxShadow: '0 2px 8px rgba(251,191,36,0.12), inset 0 1px 0 rgba(255,255,255,0.9)',
+                  color: '#b45309',
+                }}
               >
-                <Flame className="h-4 w-4 fill-amber-400 text-amber-500" />
-                <span>{userStats.currentStreak}d</span>
+                <Flame className="h-4 w-4 fill-amber-400 text-amber-400" />
+                {userStats.currentStreak}d
               </div>
 
+              {/* XP pill — desktop */}
               <div
-                className="hidden md:flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-2.5 py-1.5 text-xs font-bold text-indigo-700"
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.85), rgba(238,242,255,0.70))',
+                  border: '1px solid rgba(99,102,241,0.22)',
+                  boxShadow: '0 2px 8px rgba(99,102,241,0.10), inset 0 1px 0 rgba(255,255,255,0.9)',
+                  color: '#4338ca',
+                }}
               >
-                <Sparkles className="h-4 w-4 text-indigo-600" />
-                <span>{userStats.currentXp.toLocaleString()} XP</span>
+                <Sparkles className="h-4 w-4 text-indigo-500" />
+                {userStats.currentXp.toLocaleString()} XP
               </div>
 
+              {/* Avatar */}
               <button
                 onClick={() => onNavigate('profile')}
-                className="flex items-center justify-center rounded-xl bg-slate-100 p-1 hover:bg-slate-200 transition-colors"
-                title="Profile & Settings"
+                className="flex items-center justify-center"
+                title="Profile"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-400 to-violet-400 text-[10px] font-black text-white shadow-sm">
-                  SM
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-xl text-[10px] font-black text-white"
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                    boxShadow: '0 3px 10px rgba(99,102,241,0.30), inset 0 1px 0 rgba(255,255,255,0.20)',
+                  }}
+                >
+                  {userStats.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
               </button>
             </div>
@@ -135,28 +185,67 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* BOTTOM NAVIGATION (Mobile Only) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] pb-safe">
-        <div className="flex items-center justify-around px-1 py-2">
-          {navItems.map((item) => {
-            const isActive = currentView === item.id;
+      {/* Spacer so content doesn't hide under fixed top header on mobile */}
+      <div className="h-16 md:hidden" />
+
+      {/* ═══════════════════════════════════════════════════════════════
+          BOTTOM NAV — Mobile only, fixed with liquid glass
+      ═══════════════════════════════════════════════════════════════ */}
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-50"
+        style={{
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(248,250,252,0.95) 100%)',
+          backdropFilter: 'blur(24px) saturate(1.8)',
+          WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+          borderTop: '1px solid rgba(255,255,255,0.65)',
+          boxShadow: '0 -1px 0 rgba(99,102,241,0.06), 0 -8px 32px rgba(99,102,241,0.06), inset 0 -1px 0 rgba(226,232,240,0.4)',
+          paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
+        }}
+      >
+        {/* Inner shimmer */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, transparent 60%)',
+          }}
+        />
+
+        <div className="relative flex items-stretch justify-around px-2 pt-2 pb-1">
+          {navItems.map(({ id, label, Icon }) => {
+            const active = currentView === id;
             return (
               <button
-                key={item.id}
-                onClick={() => {
-                  sounds.playFlip();
-                  onNavigate(item.id);
-                }}
-                className="relative flex flex-col items-center justify-center w-16 h-12 rounded-xl transition-all"
+                key={id}
+                onClick={() => { sounds.playFlip(); onNavigate(id); }}
+                className="relative flex flex-col items-center justify-center flex-1 gap-1 py-1.5 rounded-2xl transition-all active:scale-90"
               >
-                {isActive && (
-                  <span className="absolute -top-3 w-8 h-1 bg-indigo-600 rounded-b-full"></span>
-                )}
-                <span className={`mb-1 transition-transform [&>svg]:w-6 [&>svg]:h-6 ${isActive ? 'text-indigo-600 [&>svg]:fill-indigo-100 -translate-y-1' : 'text-slate-400 hover:text-slate-600'}`}>
-                  {item.icon}
+                {/* Glass pill for active item */}
+                <AnimatePresence>
+                  {active && (
+                    <motion.span
+                      layoutId="bottom-pill"
+                      className="absolute inset-0 rounded-2xl"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(238,242,255,0.95) 0%, rgba(255,255,255,0.80) 100%)',
+                        border: '1px solid rgba(99,102,241,0.18)',
+                        boxShadow: '0 2px 8px rgba(99,102,241,0.10), inset 0 1px 0 rgba(255,255,255,0.9)',
+                      }}
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                    />
+                  )}
+                </AnimatePresence>
+
+                <span className="relative z-10">
+                  <Icon className={`w-[22px] h-[22px] transition-all duration-200 ${active ? 'text-indigo-600 scale-110' : 'text-slate-400'}`} />
                 </span>
-                <span className={`text-[10px] font-bold transition-all ${isActive ? 'text-indigo-700 opacity-100' : 'text-slate-500 opacity-80'}`}>
-                  {item.label}
+
+                <span className={`relative z-10 text-[10px] font-bold leading-none tracking-wide transition-colors duration-200 ${
+                  active ? 'text-indigo-700' : 'text-slate-400'
+                }`}>
+                  {label}
                 </span>
               </button>
             );

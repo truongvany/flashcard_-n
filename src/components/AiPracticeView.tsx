@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AiPracticeWord, AiEvaluationResult } from '../types';
 import { 
   Bot, 
@@ -7,13 +8,14 @@ import {
   CheckCircle2, 
   Clock, 
   Volume2, 
-  RotateCcw, 
   ChevronRight, 
   Lightbulb, 
-  Award, 
-  AlertCircle,
-  TrendingUp,
-  Loader2
+  Loader2,
+  Star,
+  ArrowRight,
+  Zap,
+  BookOpen,
+  ChevronLeft,
 } from 'lucide-react';
 import { sounds, speakWord } from '../utils/audio';
 
@@ -22,6 +24,36 @@ interface AiPracticeViewProps {
   onCompleteWord: (word: string, xpEarned: number) => void;
 }
 
+// ── Variants ─────────────────────────────────────────────────────────────────
+const fadeUp = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 380, damping: 28 } },
+};
+const slideIn = {
+  hidden: { opacity: 0, x: 20 },
+  show: { opacity: 1, x: 0, transition: { type: 'spring' as const, stiffness: 380, damping: 28 } },
+};
+
+// ── Score ring ────────────────────────────────────────────────────────────────
+const ScoreRing: React.FC<{ score: number }> = ({ score }) => {
+  const r = 28, circ = 2 * Math.PI * r;
+  const color = score >= 85 ? '#10b981' : score >= 70 ? '#f59e0b' : '#ef4444';
+  return (
+    <svg width="72" height="72" viewBox="0 0 72 72" className="-rotate-90">
+      <circle cx="36" cy="36" r={r} strokeWidth="5" fill="none" stroke="#f1f5f9" />
+      <motion.circle
+        cx="36" cy="36" r={r} strokeWidth="5" fill="none"
+        stroke={color} strokeLinecap="round"
+        strokeDasharray={circ}
+        initial={{ strokeDashoffset: circ }}
+        animate={{ strokeDashoffset: circ - (circ * score) / 100 }}
+        transition={{ duration: 1.2, ease: 'easeOut' }}
+      />
+    </svg>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 export const AiPracticeView: React.FC<AiPracticeViewProps> = ({
   practiceWords,
   onCompleteWord,
@@ -31,35 +63,28 @@ export const AiPracticeView: React.FC<AiPracticeViewProps> = ({
   const [userSentence, setUserSentence] = useState('');
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluation, setEvaluation] = useState<AiEvaluationResult | null>(null);
-  const [sessionSeconds, setSessionSeconds] = useState(868); // 14:28 baseline
+  const [sessionSeconds, setSessionSeconds] = useState(0);
+  const [showWordList, setShowWordList] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const activeWord = words[selectedWordIndex] || words[0];
-
-  // Timer increment
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSessionSeconds(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const formatTimer = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
+  const activeWord = words[selectedWordIndex] ?? words[0];
   const completedCount = words.filter(w => w.status === 'completed').length;
   const wordDetected = userSentence.toLowerCase().includes(activeWord.word.toLowerCase());
 
-  // Handle sentence submission
-  const handleSubmitSentence = async (e?: React.FormEvent) => {
+  useEffect(() => {
+    const t = setInterval(() => setSessionSeconds(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const fmt = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  // ── Evaluate ─────────────────────────────────────────────────────────────
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!userSentence.trim() || isEvaluating) return;
-
     setIsEvaluating(true);
     setEvaluation(null);
-
     try {
       const res = await fetch('/api/ai/evaluate-sentence', {
         method: 'POST',
@@ -71,380 +96,376 @@ export const AiPracticeView: React.FC<AiPracticeViewProps> = ({
           targetCefr: activeWord.cefr,
         }),
       });
-
       const data = await res.json();
-      if (data && data.evaluation) {
+      if (data?.evaluation) {
         setEvaluation(data.evaluation);
         sounds.playRating('good');
-
-        // Mark word as completed
-        setWords(prev => prev.map((w, idx) => 
-          idx === selectedWordIndex ? { ...w, status: 'completed' } : w
-        ));
-
-        onCompleteWord(activeWord.word, data.evaluation.xpEarned || 45);
+        setWords(prev => prev.map((w, i) => i === selectedWordIndex ? { ...w, status: 'completed' } : w));
+        onCompleteWord(activeWord.word, data.evaluation.xpEarned ?? 45);
       }
-    } catch (err) {
-      console.error('Failed to evaluate sentence:', err);
-      // Fallback evaluation in case server network is unreachable
-      const fallbackEval: AiEvaluationResult = {
-        score: 94,
+    } catch {
+      // Fallback mock
+      const fb: AiEvaluationResult = {
+        score: 91,
         cefrVerified: `${activeWord.cefr} Confirmed`,
-        summary: `Excellent contextual command of "${activeWord.word}".`,
+        summary: `Excellent contextual command of "${activeWord.word}". Clear, professional use.`,
         grammarTonePoints: [
-          `Executive cadence: Clear conditional framing aligns with high-level professional communication.`,
-          `Syntactical precision: Accurate modifier positioning.`,
+          'Executive cadence: Clear conditional framing aligns with professional communication.',
+          'Syntactical precision: Accurate modifier positioning throughout.',
         ],
         collocations: activeWord.collocations,
-        modelAlternative: activeWord.sampleAnswer || userSentence,
+        modelAlternative: activeWord.sampleAnswer ?? userSentence,
         xpEarned: 45,
       };
-      setEvaluation(fallbackEval);
+      setEvaluation(fb);
       sounds.playRating('good');
+      setWords(prev => prev.map((w, i) => i === selectedWordIndex ? { ...w, status: 'completed' } : w));
       onCompleteWord(activeWord.word, 45);
     } finally {
       setIsEvaluating(false);
     }
   };
 
-  // Quick Inspire Me prompt filler
-  const handleApplyInspire = (text: string) => {
-    setUserSentence(text);
-  };
-
-  // Advance to next target word
-  const handleNextWord = () => {
+  const handleNext = () => {
     setEvaluation(null);
     setUserSentence('');
-    if (selectedWordIndex + 1 < words.length) {
-      setSelectedWordIndex(prev => prev + 1);
-    } else {
-      setSelectedWordIndex(0);
-    }
+    setSelectedWordIndex(i => (i + 1 < words.length ? i + 1 : 0));
+    setTimeout(() => textareaRef.current?.focus(), 100);
   };
 
+  const handleSelectWord = (idx: number) => {
+    setSelectedWordIndex(idx);
+    setEvaluation(null);
+    setUserSentence('');
+    setShowWordList(false);
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      
-      {/* View Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200/80">
+    <div className="w-full max-w-lg mx-auto px-4 pt-4 pb-8 space-y-4">
+
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center space-x-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-800 border border-violet-200/60">
-              Interactive Sandbox
+          <h1 className="text-[20px] font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center shadow-sm">
+              <Bot className="w-4 h-4 text-white" />
             </span>
-            <span className="text-xs text-slate-400">Session #42 • Executive English</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            AI Context Practice
+            AI Practice
           </h1>
+          <p className="text-[12px] text-slate-400 mt-0.5 ml-9">Contextual sentence building · CEFR C1</p>
         </div>
-
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-medium text-slate-600 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1.5 rounded-full text-[11px] font-bold text-slate-600">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-mono font-bold text-slate-800">{formatTimer(sessionSeconds)}</span>
+            <span className="font-mono">{fmt(sessionSeconds)}</span>
           </div>
-
-          <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs">
-            {completedCount} / {words.length} Words Completed
+          <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 px-2.5 py-1.5 rounded-full text-[11px] font-bold text-emerald-700">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            {completedCount}/{words.length}
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Left Column Vocabulary list, Right Column Chat Stage */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* ================= LEFT COLUMN: TARGET WORDS ================= */}
-        <div className="lg:col-span-4 space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Target Vocabulary
-            </span>
-            <span className="text-xs text-slate-400">CEFR C1 Level</span>
+      {/* ── Progress bar ────────────────────────────────────────────────── */}
+      <div className="bg-slate-100 rounded-full h-1.5 overflow-hidden">
+        <motion.div
+          className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full"
+          animate={{ width: `${(completedCount / words.length) * 100}%` }}
+          transition={{ duration: 0.5 }}
+        />
+      </div>
+
+      {/* ── Word list button ─────────────────────────────────────────────── */}
+      <button
+        onClick={() => setShowWordList(v => !v)}
+        className="w-full flex items-center justify-between bg-white border border-slate-200/70 rounded-2xl px-4 py-3 shadow-sm active:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center">
+            <BookOpen className="w-4 h-4 text-indigo-600" />
           </div>
-
-          <div className="space-y-2.5">
-            {words.map((item, idx) => {
-              const isSelected = idx === selectedWordIndex;
-              const isDone = item.status === 'completed';
-
-              return (
-                <button
-                  key={item.word}
-                  onClick={() => {
-                    sounds.playFlip();
-                    setSelectedWordIndex(idx);
-                    setEvaluation(null);
-                    setUserSentence('');
-                  }}
-                  className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-white border-indigo-500 shadow-md ring-2 ring-indigo-500/10'
-                      : 'bg-white border-slate-200/80 hover:border-slate-300 shadow-2xs'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-base text-slate-900">
-                        {item.word}
-                      </span>
-                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                        {item.cefr}
-                      </span>
-                    </div>
-
-                    {isDone ? (
-                      <span className="flex items-center space-x-1 text-emerald-600 text-xs font-semibold">
-                        <CheckCircle2 className="w-4 h-4 fill-emerald-100" />
-                        <span>Done</span>
-                      </span>
-                    ) : isSelected ? (
-                      <span className="text-xs font-bold text-indigo-600">Active</span>
-                    ) : (
-                      <span className="text-xs text-slate-400">Queue</span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-slate-500 line-clamp-1 mb-2">
-                    {item.definition}
-                  </p>
-
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-100">
-                    <span>Mastery {item.retentionRate}%</span>
-                    <span className="font-mono text-indigo-600">
-                      {item.collocations[0]}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="text-left">
+            <p className="text-[13px] font-bold text-slate-900">{activeWord.word}</p>
+            <p className="text-[11px] text-slate-400">{activeWord.partOfSpeech} · CEFR {activeWord.cefr}</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+            {selectedWordIndex + 1}/{words.length}
+          </span>
+          <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showWordList ? 'rotate-90' : ''}`} />
+        </div>
+      </button>
 
-        {/* ================= RIGHT COLUMN: INTERACTIVE TUTOR STAGE ================= */}
-        <div className="lg:col-span-8 space-y-5">
-          
-          {/* Tutor Challenge Message Card */}
-          <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-            <div className="flex items-start space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                <Bot className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-sm text-slate-900">Memora Tutor AI</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-violet-100 text-violet-700 px-1.5 py-0.2 rounded">
-                    Linguistic Evaluation
-                  </span>
-                </div>
-                <p className="text-sm text-slate-700 leading-relaxed">
-                  Let’s practice the word <span className="font-bold text-indigo-600 underline underline-offset-2">{activeWord.word}</span>.
-                </p>
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
-                  {activeWord.promptChallenge}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Inspire Me Suggestions */}
-            <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center space-x-1">
-                <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                <span>Inspire Me (Quick Reference Templates)</span>
-              </span>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleApplyInspire(activeWord.sampleAnswer || '')}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
-                >
-                  ⚡ Executive Trade-off Example
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleApplyInspire(`Adopting a ${activeWord.word.toLowerCase()} stance, the leadership committee decided to...`)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
-                >
-                  ✍️ Strategic Decision Template
-                </button>
-              </div>
-            </div>
-
-            {/* User Sentence Composition Form */}
-            <form onSubmit={handleSubmitSentence} className="space-y-3 pt-2">
-              <div className="relative">
-                <textarea
-                  value={userSentence}
-                  onChange={(e) => setUserSentence(e.target.value)}
-                  placeholder={`Draft your executive sentence utilizing "${activeWord.word}" in context...`}
-                  rows={4}
-                  className="w-full p-4 rounded-2xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all resize-none leading-relaxed"
-                />
-
-                {/* Live indicators */}
-                <div className="flex items-center justify-between px-1 text-xs">
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors ${
-                      wordDetected 
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+      {/* ── Collapsible word list ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showWordList && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="bg-white border border-slate-200/70 rounded-2xl shadow-sm divide-y divide-slate-100 overflow-hidden">
+              {words.map((w, idx) => {
+                const active = idx === selectedWordIndex;
+                const done = w.status === 'completed';
+                return (
+                  <button
+                    key={w.word}
+                    onClick={() => handleSelectWord(idx)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${active ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}
+                  >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                      done ? 'bg-emerald-100 text-emerald-700' : active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
                     }`}>
-                      {wordDetected ? `✓ "${activeWord.word}" detected` : `Target word required`}
-                    </span>
-                    <span className="text-slate-400">
-                      {userSentence.trim().split(/\s+/).filter(Boolean).length} words
-                    </span>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      type="button"
-                      onClick={() => speakWord(userSentence || activeWord.word)}
-                      className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
-                      title="Listen to your sentence"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </button>
-                    <span className="text-[11px] text-slate-400 hidden sm:inline">
-                      Press ⌘+Enter to submit
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end space-x-3">
-                <button
-                  type="submit"
-                  disabled={!userSentence.trim() || isEvaluating}
-                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 disabled:shadow-none transition-all cursor-pointer disabled:cursor-not-allowed flex items-center space-x-2"
-                >
-                  {isEvaluating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Evaluating Linguistic Nuance...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Evaluate Sentence</span>
-                      <Send className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* ================= AI EVALUATION FEEDBACK CARD ================= */}
-          {evaluation && (
-            <div className="p-6 rounded-3xl bg-white border border-indigo-200 shadow-md space-y-5 animate-fadeIn">
-              
-              {/* Feedback Top Score Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100">
-                <div className="flex items-center space-x-4">
-                  
-                  {/* Circular Score Badge */}
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-200 flex flex-col items-center justify-center shrink-0">
-                    <span className="text-xl font-extrabold text-indigo-700">
-                      {evaluation.score}
-                    </span>
-                    <span className="text-[9px] font-bold text-indigo-500 uppercase">
-                      Score
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-base font-bold text-slate-900">
-                        Exceptional Vocabulary Match
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {evaluation.cefrVerified}
-                      </span>
+                      {done ? '✓' : idx + 1}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {evaluation.summary}
-                    </p>
-                  </div>
-                </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[13px] font-bold ${active ? 'text-indigo-700' : 'text-slate-800'}`}>{w.word}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{w.definition}</p>
+                    </div>
+                    <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded shrink-0">{w.cefr}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-                <div className="flex items-center space-x-2 self-end sm:self-center">
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                    +{evaluation.xpEarned} Mastery XP
-                  </span>
-                </div>
+      {/* ── AI Tutor card ────────────────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeWord.word}
+          variants={slideIn}
+          initial="hidden"
+          animate="show"
+          className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-5 text-white shadow-xl shadow-indigo-900/20 relative overflow-hidden"
+        >
+          {/* Decorative glow */}
+          <div className="absolute -right-8 -top-8 w-32 h-32 bg-violet-500/20 blur-3xl rounded-full pointer-events-none" />
+          <div className="absolute -left-4 -bottom-4 w-24 h-24 bg-indigo-500/15 blur-2xl rounded-full pointer-events-none" />
+
+          <div className="relative z-10 space-y-4">
+            {/* AI label + word */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-violet-300" />
               </div>
-
-              {/* Grammar & Tone Precision Breakdown */}
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                  Grammar & Tone Precision
-                </span>
-                <ul className="space-y-2 text-xs text-slate-700">
-                  {evaluation.grammarTonePoints.map((point, i) => (
-                    <li key={i} className="flex items-start space-x-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-300">Memora Tutor AI</p>
+                <p className="text-[11px] text-white/60">Linguistic Evaluation Engine</p>
               </div>
+              <button
+                onClick={() => speakWord(activeWord.word)}
+                className="ml-auto w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20 transition-colors"
+              >
+                <Volume2 className="w-4 h-4" />
+              </button>
+            </div>
 
-              {/* Collocations */}
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                  Natural Collocations for "{activeWord.word}"
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {evaluation.collocations.map((col, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-800"
-                    >
-                      {col}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Native Model Alternative */}
-              {evaluation.modelAlternative && (
-                <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">
-                      Native Executive Model Sentence
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => speakWord(evaluation.modelAlternative)}
-                      className="p-1 rounded text-indigo-600 hover:bg-indigo-100 transition-colors"
-                      title="Listen to native model sentence"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <blockquote className="text-xs sm:text-sm text-slate-800 italic leading-relaxed">
-                    “{evaluation.modelAlternative}”
-                  </blockquote>
-                </div>
-              )}
-
-              {/* Advance CTA */}
-              <div className="pt-2 flex justify-end">
-                <button
-                  type="button"
-                  id="practice-advance-next-btn"
-                  onClick={handleNextWord}
-                  className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-indigo-600 text-white font-semibold text-xs transition-colors cursor-pointer flex items-center space-x-1.5"
-                >
-                  <span>Advance to Next Word</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+            {/* Word spotlight */}
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-3xl font-black tracking-tight text-white">{activeWord.word}</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold bg-white/15 border border-white/20 text-white px-2 py-0.5 rounded">{activeWord.cefr}</span>
+                <span className="text-[11px] text-white/50">{activeWord.partOfSpeech}</span>
               </div>
             </div>
-          )}
-        </div>
-      </div>
+
+            {/* Definition */}
+            <p className="text-[13px] text-indigo-200 leading-relaxed border-l-2 border-indigo-400/40 pl-3">
+              {activeWord.definition}
+            </p>
+
+            {/* Challenge prompt */}
+            <div className="bg-white/8 border border-white/12 rounded-2xl p-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-violet-300 mb-1.5">Your Challenge</p>
+              <p className="text-[13px] text-white/90 leading-relaxed font-medium">{activeWord.promptChallenge}</p>
+            </div>
+
+            {/* Collocations */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-300 mb-2">Common Collocations</p>
+              <div className="flex flex-wrap gap-1.5">
+                {activeWord.collocations.map(c => (
+                  <span key={c} className="text-[11px] bg-white/10 border border-white/15 text-white/80 px-2.5 py-1 rounded-lg font-medium">
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* ── Inspire suggestion ───────────────────────────────────────────── */}
+      {!evaluation && (
+        <motion.button
+          variants={fadeUp} initial="hidden" animate="show"
+          onClick={() => setUserSentence(activeWord.sampleAnswer ?? `The ${activeWord.word.toLowerCase()} approach has been vital to our success.`)}
+          className="w-full flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 text-left active:bg-amber-100 transition-colors"
+        >
+          <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <Lightbulb className="w-4 h-4 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-[12px] font-bold text-amber-800">Need inspiration?</p>
+            <p className="text-[11px] text-amber-600">Tap to load a sample sentence template</p>
+          </div>
+          <ArrowRight className="w-4 h-4 text-amber-400 ml-auto shrink-0" />
+        </motion.button>
+      )}
+
+      {/* ── Write area (hidden when evaluation shown) ────────────────────── */}
+      {!evaluation && (
+        <motion.div variants={fadeUp} initial="hidden" animate="show">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {/* Textarea */}
+            <div className="relative bg-white border border-slate-200/70 rounded-3xl shadow-sm overflow-hidden focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/20 transition-all">
+              <textarea
+                ref={textareaRef}
+                value={userSentence}
+                onChange={e => setUserSentence(e.target.value)}
+                placeholder={`Write a sentence using "${activeWord.word}"…`}
+                rows={4}
+                className="w-full px-4 pt-4 pb-2 text-[14px] text-slate-900 placeholder:text-slate-400 resize-none bg-transparent focus:outline-none leading-relaxed"
+              />
+              {/* Status chips */}
+              <div className="flex items-center justify-between px-4 pb-3">
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition-all ${
+                  wordDetected
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                }`}>
+                  {wordDetected ? `✓ "${activeWord.word}" detected` : 'Target word missing'}
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  {userSentence.trim().split(/\s+/).filter(Boolean).length} words
+                </span>
+              </div>
+            </div>
+
+            {/* Submit */}
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              type="submit"
+              disabled={!userSentence.trim() || isEvaluating}
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-extrabold text-[15px] flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            >
+              {isEvaluating ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Evaluating…</>
+              ) : (
+                <><Sparkles className="w-5 h-5" /> Evaluate My Sentence <Send className="w-4 h-4 ml-1" /></>
+              )}
+            </motion.button>
+          </form>
+        </motion.div>
+      )}
+
+      {/* ── Evaluation result ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {evaluation && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+            className="space-y-4"
+          >
+            {/* Score card */}
+            <div className="bg-white rounded-3xl border border-slate-200/70 shadow-sm p-5">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="relative shrink-0">
+                  <ScoreRing score={evaluation.score} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-black text-slate-900">{evaluation.score}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Score</span>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-[14px] font-extrabold text-slate-900">Excellent Work!</span>
+                    <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+                      {evaluation.cefrVerified}
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-slate-500 leading-relaxed">{evaluation.summary}</p>
+                  <div className="mt-2 inline-flex items-center gap-1.5 bg-amber-50 border border-amber-100 text-amber-700 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                    <Zap className="w-3 h-3 fill-amber-400" />+{evaluation.xpEarned} XP earned
+                  </div>
+                </div>
+              </div>
+
+              {/* Grammar points */}
+              <div className="space-y-2 border-t border-slate-100 pt-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Grammar & Tone</p>
+                {evaluation.grammarTonePoints.map((pt, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <p className="text-[12px] text-slate-700 leading-relaxed">{pt}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Collocations */}
+            <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-4">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+                Natural Collocations for "{activeWord.word}"
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {evaluation.collocations.map(c => (
+                  <span key={c} className="text-[12px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1 rounded-xl">
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Model sentence */}
+            {evaluation.modelAlternative && (
+              <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                    <p className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">Native Model Sentence</p>
+                  </div>
+                  <button
+                    onClick={() => speakWord(evaluation.modelAlternative)}
+                    className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 active:bg-indigo-200 transition-colors"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <blockquote className="text-[13px] text-slate-800 italic leading-relaxed">
+                  "{evaluation.modelAlternative}"
+                </blockquote>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => { setEvaluation(null); setUserSentence(''); }}
+                className="flex-1 py-3.5 rounded-2xl border border-slate-200 bg-white text-slate-700 font-bold text-[13px] flex items-center justify-center gap-2 active:bg-slate-50 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" /> Try Again
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={handleNext}
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-[13px] flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20"
+              >
+                Next Word <ChevronRight className="w-4 h-4" />
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
